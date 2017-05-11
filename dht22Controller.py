@@ -4,7 +4,7 @@
 import sys
 import Adafruit_DHT
 
-DHTSENSOR = 2303
+DHTSENSOR = Adafruit_DHT.AM2302
 DHTPIN = 4
 
 # Try to grab a sensor reading.  Use the read_retry method which will retry up
