@@ -1,2 +1,6 @@
 # ThermoPi
-Home Programmable Thermostat design with Raspberry Pi
+Home Programmable Thermostat designed with Raspberry Pi
+
+## Description
+- Using Adafruit DHT Library
+- Python
