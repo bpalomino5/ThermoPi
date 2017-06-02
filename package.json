@@ -1,0 +1,22 @@
+{
+  "name": "thermopi",
+  "version": "1.0.0",
+  "description": "Wireless Thermostat with RPI",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bpalomino5/ThermoPi.git"
+  },
+  "author": "Brandon Palomino",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bpalomino5/ThermoPi/issues"
+  },
+  "homepage": "https://github.com/bpalomino5/ThermoPi#readme",
+  "dependencies": {
+    "node-dht-sensor": "0.0.32"
+  }
+}
