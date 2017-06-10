@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/bpalomino5/ThermoPi#readme",
   "dependencies": {
-    "node-dht-sensor": "0.0.32"
+    "node-dht-sensor": "0.0.32",
+    "pigpio": "^0.6.0"
   }
 }
