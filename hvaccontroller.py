@@ -4,8 +4,8 @@ import time
 
 
 PIN_FAN = 11
-PIN_COMPRESSOR = 13
-PIN_COOL = 15
+PIN_COMPRESSOR = 12
+PIN_COOL = 13
 
 RELAY_ON = False				# GPIO.LOW 0
 RELAY_OFF = (not RELAY_ON)		# GPIO.HIGH 1
@@ -35,16 +35,17 @@ def cleanup():
 
 
 def testRelays():
-	time.sleep(5)
 	# turn on all three relays
 	GPIO.output(PIN_FAN, RELAY_ON)
 	GPIO.output(PIN_COMPRESSOR, RELAY_ON)
 	GPIO.output(PIN_COOL, RELAY_ON)
+	time.sleep(5)
 
 
 if __name__ == '__main__':
 	setupSystem()
 	try:
 		testRelays()
+		cleanup()
 	except KeyboardInterrupt:
 		cleanup()
