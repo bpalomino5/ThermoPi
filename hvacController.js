@@ -35,6 +35,8 @@ var RELAY_OFF = 1    // GPIO.HIGH 1
 
 var blynkToken = '9a5060fcbcc0434481fb75eb8cbc036a';    // BLYNK TOKEN
 
+var temp = 0
+var stepValue = 0
 
 var sensor = require('node-dht-sensor');
 
@@ -52,8 +54,10 @@ var blynk = new Blynk.Blynk(blynkToken);
 //Setup Virtual Pins
 var v0 = new blynk.VirtualPin(0);   // Power
 var v1 = new blynk.VirtualPin(1);   // Hot/Cold
-// var v2 = new blynk.VirtualPin(2)
+var v2 = new blynk.VirtualPin(2);   // Set
+var v3 = new blynk.VirtualPin(3);   // Stepper
 var v4 = new blynk.VirtualPin(4);   // Temperature Scale
+var v5 = new blynk.WidgetLCD(5);    // LCD
 
 blynk.on('connect', function() { console.log("Blynk ready.\n\nSettings Log:"); });
 blynk.on('disconnect', function() { console.log("DISCONNECT"); });
@@ -65,7 +69,7 @@ function getTemp(){
   var t = sensor.read(22, PIN_TEMPERATURE).temperature.toFixed(1);
   // convert from C to F
   t = t * 9/5.0 + 32;
-  return t;
+  return Math.round(t);
 }
 
 v0.on('write', function(param) {
@@ -81,19 +85,41 @@ v0.on('write', function(param) {
 v1.on('write', function(param) {
     if (param[0] === '1') {
       blynk.setProperty(1,"color",BLYNK_RED);
-      console.log("*** PUMP: HOT ***");
+      console.log("*** FLOW: HOT ***");
+      v5.clear();
+      v5.print(0,0, "A/C: Heating");
       setCompHot()
 
     } else { 
       blynk.setProperty(1,"color",BLYNK_BLUE);
-      console.log("*** PUMP: COLD ***");
+      console.log("*** FLOW: COLD ***");
+      v5.clear();
+      v5.print(0,0, "A/C: Cooling");
       setCompCold()
     }
+
+});
+
+v2.on('write', function(param) {
+  if(param[0] === '1'){
+    setAuto()
+  }
+});
+
+v3.on('write', function(param) {
+  stepValue = Number(param[0]);
+  v5.clear();
+  v5.print(0,0, "Set to: " + stepValue +" F")
 });
 
 v4.on('read', function(val) {
   console.log("*** Reading Temperature ***");
-  v4.write(getTemp());
+  temp = getTemp();
+  v4.write(temp);
+
+  //writing temp value to stepper
+  stepValue = temp;
+  v3.write(temp);
 });
 
 /// Functions for Power
@@ -116,4 +142,23 @@ function setCompHot() {     // R+G+Y active sets hot air
 
 function setCompCold() {    // R+G+Y+O active sets cold air
   FLOW.digitalWrite(RELAY_ON); 
+}
+
+/// Function for Auto feature
+function setAuto() {
+  if(stepValue > temp){
+    v5.clear()
+    v5.print(0,0, "A/C Auto:")
+    v5.print(0,1, "Heating to " + stepValue + " F")
+  }
+  else if(stepValue < temp){
+    v5.clear()
+    v5.print(0,0, "A/C Auto:")
+    v5.print(0,1, "Cooling to " + stepValue + " F")
+  }
+  else{ // stepValue and temp are equal
+    v5.clear()
+    v5.print(0,0, "A/C Auto:")
+    v5.print(0,1, "Fixed at " + temp + " F")
+  }
 }
