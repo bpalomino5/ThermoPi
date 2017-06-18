@@ -89,6 +89,7 @@ v0.on('write', function(param) {
         PowerOff()
         console.log("A/C Off");
         displayOff()
+        setAutoOff()
     }
 });
 
