@@ -88,6 +88,7 @@ v0.on('write', function(param) {
     } else { 
         PowerOff()
         console.log("A/C Off");
+        displayOff()
     }
 });
 
@@ -134,7 +135,8 @@ v4.on('read', function(val) {
 
     //check if auto on
     if(auto >= 0){
-        console.log("Auto: " + auto)
+        console.log("*** Auto: " + auto)
+
         if(auto == 1){  //heating
             //make sure compressor is heating
             if(flowSetting != 1) setCompHot();
@@ -146,6 +148,7 @@ v4.on('read', function(val) {
             if(temp <= targetTemp) auto = 2;
         }
         if(auto == 2){  //fixed
+            displayFixed();
             //fix temp after temp loses two degrees
             if(temp <= (targetTemp-2)) auto = 1;   //heating
             if(temp >= (targetTemp+2)) auto = 0;   //cooling
@@ -202,4 +205,15 @@ function setAuto() {
 
 function setAutoOff() {
     auto = -1
+}
+
+function displayFixed() {
+    v5.clear()
+    v5.print(0,0, "A/C Auto:")
+    v5.print(0,1, "Fixed at " + temp + " F")
+}
+
+function displayOff() {
+    v5.clear()
+    v5.print(0,0, "A/C Off");
 }
