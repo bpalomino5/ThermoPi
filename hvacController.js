@@ -30,14 +30,23 @@ var PIN_FAN = 17
 var PIN_COMPRESSOR = 18
 var PIN_FLOW = 27
 
+// Helper Settings
 var RELAY_ON = 0        // GPIO.LOW 0
 var RELAY_OFF = 1    // GPIO.HIGH 1
 
+// Blynk Cloud Token
 var blynkToken = '9a5060fcbcc0434481fb75eb8cbc036a';    // BLYNK TOKEN
 
+// Helper vars
 var temp = 0
 var stepValue = 0
 
+// checks for auto feature
+var auto = -1   //-1 = not on
+var targetTemp = 0
+var flowSetting = 0 //  0=cold
+
+// Dht sensor module
 var sensor = require('node-dht-sensor');
 
 // These are for the physical pins on the RPi
@@ -74,91 +83,123 @@ function getTemp(){
 
 v0.on('write', function(param) {
     if (param[0] === '1') {
-      PowerOn()
-      console.log("A/C On");
+        PowerOn()
+        console.log("A/C On");
     } else { 
-      PowerOff()
-      console.log("A/C Off");
+        PowerOff()
+        console.log("A/C Off");
     }
 });
 
 v1.on('write', function(param) {
     if (param[0] === '1') {
-      blynk.setProperty(1,"color",BLYNK_RED);
-      console.log("*** FLOW: HOT ***");
-      v5.clear();
-      v5.print(0,0, "A/C: Heating");
-      setCompHot()
-
+        blynk.setProperty(1,"color",BLYNK_RED);
+        console.log("*** FLOW: HOT ***");
+        v5.clear();
+        v5.print(0,0, "A/C: Heating");
+        setCompHot()
     } else { 
-      blynk.setProperty(1,"color",BLYNK_BLUE);
-      console.log("*** FLOW: COLD ***");
-      v5.clear();
-      v5.print(0,0, "A/C: Cooling");
-      setCompCold()
+        blynk.setProperty(1,"color",BLYNK_BLUE);
+        console.log("*** FLOW: COLD ***");
+        v5.clear();
+        v5.print(0,0, "A/C: Cooling");
+        setCompCold()
     }
 
+    //if auto running set off
+    if(auto >= 0) setAutoOff();
 });
 
 v2.on('write', function(param) {
-  if(param[0] === '1'){
-    setAuto()
-  }
+    if(param[0] === '1'){
+        setAuto()
+    }
 });
 
 v3.on('write', function(param) {
-  stepValue = Number(param[0]);
-  v5.clear();
-  v5.print(0,0, "Set to: " + stepValue +" F")
+    stepValue = Number(param[0]);
+    v5.clear();
+    v5.print(0,0, "Set to: " + stepValue +" F")
 });
 
 v4.on('read', function(val) {
-  console.log("*** Reading Temperature ***");
-  temp = getTemp();
-  v4.write(temp);
+    //get temp from dht
+    console.log("*** Reading Temperature ***");
+    temp = getTemp();
+    v4.write(temp);
 
-  //writing temp value to stepper
-  stepValue = temp;
-  v3.write(temp);
+    //writing temp value to stepper
+    stepValue = temp;
+    v3.write(temp);
+
+    //check if auto on
+    if(auto >= 0){
+        console.log("Auto: " + auto)
+        if(auto == 1){  //heating
+            //make sure compressor is heating
+            if(flowSetting != 1) setCompHot();
+            //check temp with target temp
+            if(temp >= targetTemp) auto = 2;
+        }
+        if(auto == 0){  //cooling
+            if(flowSetting != 0) setCompCold();
+            if(temp <= targetTemp) auto = 2;
+        }
+        if(auto == 2){  //fixed
+            //fix temp after temp loses two degrees
+            if(temp <= (targetTemp-2)) auto = 1;   //heating
+            if(temp >= (targetTemp+2)) auto = 0;   //cooling
+        }
+    }
 });
 
 /// Functions for Power
 function PowerOn() {
-  FAN.digitalWrite(RELAY_ON);
-  COMPRESSOR.digitalWrite(RELAY_ON);
-  FLOW.digitalWrite(RELAY_ON);
+    FAN.digitalWrite(RELAY_ON);
+    COMPRESSOR.digitalWrite(RELAY_ON);
+    FLOW.digitalWrite(RELAY_ON);
 }
 
 function PowerOff() {
-  FAN.digitalWrite(RELAY_OFF);
-  COMPRESSOR.digitalWrite(RELAY_OFF);
-  FLOW.digitalWrite(RELAY_OFF);
+    FAN.digitalWrite(RELAY_OFF);
+    COMPRESSOR.digitalWrite(RELAY_OFF);
+    FLOW.digitalWrite(RELAY_OFF);
 }
 
 /// Functions for Compressor Air Flow
 function setCompHot() {     // R+G+Y active sets hot air
-  FLOW.digitalWrite(RELAY_OFF);
+    FLOW.digitalWrite(RELAY_OFF);
+    flowSetting = 1
 }
 
 function setCompCold() {    // R+G+Y+O active sets cold air
-  FLOW.digitalWrite(RELAY_ON); 
+    FLOW.digitalWrite(RELAY_ON);
+    flowSetting = 0
 }
 
 /// Function for Auto feature
 function setAuto() {
-  if(stepValue > temp){
-    v5.clear()
-    v5.print(0,0, "A/C Auto:")
-    v5.print(0,1, "Heating to " + stepValue + " F")
-  }
-  else if(stepValue < temp){
-    v5.clear()
-    v5.print(0,0, "A/C Auto:")
-    v5.print(0,1, "Cooling to " + stepValue + " F")
-  }
-  else{ // stepValue and temp are equal
-    v5.clear()
-    v5.print(0,0, "A/C Auto:")
-    v5.print(0,1, "Fixed at " + temp + " F")
-  }
+    if(stepValue > temp){
+        v5.clear()
+        v5.print(0,0, "A/C Auto:")
+        v5.print(0,1, "Heating to " + stepValue + " F")
+        auto = 1
+    }
+    else if(stepValue < temp){
+        v5.clear()
+        v5.print(0,0, "A/C Auto:")
+        v5.print(0,1, "Cooling to " + stepValue + " F")
+        auto = 0
+    }
+    else{ // stepValue and temp are equal
+        v5.clear()
+        v5.print(0,0, "A/C Auto:")
+        v5.print(0,1, "Fixed at " + temp + " F")
+        auto = 2
+    }
+    targetTemp = temp
+}
+
+function setAutoOff() {
+    auto = -1
 }
