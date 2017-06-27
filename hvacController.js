@@ -226,7 +226,7 @@ function runAuto() {
 
 function setAutoOff() {
     auto = -1
-    clearInterval(runAuto);
+    clearInterval(autoTimer);
 }
 
 function displayFixed() {
