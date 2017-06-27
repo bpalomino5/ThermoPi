@@ -226,7 +226,7 @@ function setAutoOff() {
 function displayFixed() {
     v5.clear()
     v5.print(0,0, "A/C Auto:")
-    v5.print(0,1, "Fixed at " + temp + " F")
+    v5.print(0,1, "Fixed at " + targetTemp + " F")
 }
 
 function displayOff() {
