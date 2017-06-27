@@ -1,6 +1,12 @@
 #!/usr/bin/env node
+//Author: Brandon Palomino
+//Domain: com.bpalomino.ThermoPi
+//Date: 6/27/17
+//Description: ThermoPi is my homemade programmable hvac-system controller which handles all the core features of a regular wall thermostat.
+//             Designed for exploration of skills and advancing my knowledge of circuitry.
+
 /*
-Needs:
+Uses the Following:
 Modules : On/off, pigpio, blynk-library
 Blynk Items:
 Power Button: v0
@@ -45,6 +51,7 @@ var stepValue = 0
 var auto = -1   //-1 = not on
 var targetTemp = 0
 var flowSetting = 0 //  0=cold
+var isPowered = false
 
 // Dht sensor module
 var sensor = require('node-dht-sensor');
@@ -140,19 +147,24 @@ v4.on('read', function(val) {
 
         if(auto == 1){  //heating
             //make sure compressor is heating
+            if(!isPowered) PowerOn();
             if(flowSetting != 1) setCompHot();
             //check temp with target temp
             if(temp >= targetTemp) auto = 2;
         }
         if(auto == 0){  //cooling
+            if(!isPowered) PowerOn();
             if(flowSetting != 0) setCompCold();
             if(temp <= targetTemp) auto = 2;
         }
         if(auto == 2){  //fixed
+            //power saving feature,
+            //turn off a/c
+            if(isPowered) PowerOff();
             displayFixed();
-            //fix temp after temp loses two degrees
-            if(temp <= (targetTemp-2)) auto = 1;   //heating
-            if(temp >= (targetTemp+2)) auto = 0;   //cooling
+            //fix temp after two degree difference
+            if(temp >= (targetTemp+2)) auto = 1;   //heating
+            if(temp <= (targetTemp-2)) auto = 0;   //cooling
         }
     }
 });
@@ -162,12 +174,14 @@ function PowerOn() {
     FAN.digitalWrite(RELAY_ON);
     COMPRESSOR.digitalWrite(RELAY_ON);
     FLOW.digitalWrite(RELAY_ON);
+    isPowered = true;
 }
 
 function PowerOff() {
     FAN.digitalWrite(RELAY_OFF);
     COMPRESSOR.digitalWrite(RELAY_OFF);
     FLOW.digitalWrite(RELAY_OFF);
+    isPowered = false;
 }
 
 /// Functions for Compressor Air Flow
@@ -201,7 +215,8 @@ function setAuto() {
         v5.print(0,1, "Fixed at " + temp + " F")
         auto = 2
     }
-    targetTemp = temp
+    //target is set to stepValue
+    targetTemp = stepValue
 }
 
 function setAutoOff() {
