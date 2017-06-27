@@ -52,6 +52,7 @@ var auto = -1   //-1 = not on
 var targetTemp = 0
 var flowSetting = 0 //  0=cold
 var isPowered = false
+var autoTimer;
 
 // Dht sensor module
 var sensor = require('node-dht-sensor');
@@ -92,7 +93,7 @@ v0.on('write', function(param) {
     if (param[0] === '1') {
         PowerOn()
         console.log("A/C On");
-    } else { 
+    } else {
         PowerOff()
         console.log("A/C Off");
         displayOff()
@@ -140,33 +141,6 @@ v4.on('read', function(val) {
     //writing temp value to stepper
     stepValue = temp;
     v3.write(temp);
-
-    //check if auto on
-    if(auto >= 0){
-        console.log("*** Auto: " + auto)
-
-        if(auto == 1){  //heating
-            //make sure compressor is heating
-            if(!isPowered) PowerOn();
-            if(flowSetting != 1) setCompHot();
-            //check temp with target temp
-            if(temp >= targetTemp) auto = 2;
-        }
-        if(auto == 0){  //cooling
-            if(!isPowered) PowerOn();
-            if(flowSetting != 0) setCompCold();
-            if(temp <= targetTemp) auto = 2;
-        }
-        if(auto == 2){  //fixed
-            //power saving feature,
-            //turn off a/c
-            if(isPowered) PowerOff();
-            displayFixed();
-            //fix temp after two degree difference
-            if(temp >= (targetTemp+2)) auto = 1;   //heating
-            if(temp <= (targetTemp-2)) auto = 0;   //cooling
-        }
-    }
 });
 
 /// Functions for Power
@@ -174,6 +148,7 @@ function PowerOn() {
     FAN.digitalWrite(RELAY_ON);
     COMPRESSOR.digitalWrite(RELAY_ON);
     FLOW.digitalWrite(RELAY_ON);
+    flowSetting = 0
     isPowered = true;
 }
 
@@ -217,10 +192,41 @@ function setAuto() {
     }
     //target is set to stepValue
     targetTemp = stepValue
+
+    //set timer to run callback every minute
+    autoTimer = setInterval(runAuto, (1000 * 60));
+}
+
+function runAuto() {
+    temp = getTemp();
+    console.log("*** Auto: " + auto)
+
+    if(auto == 1){  //heating
+        //make sure compressor is heating
+        if(!isPowered) PowerOn();
+        if(flowSetting != 1) setCompHot();
+        //check temp with target temp
+        if(temp >= targetTemp) auto = 2;
+    }
+    if(auto == 0){  //cooling
+        if(!isPowered) PowerOn();
+        if(flowSetting != 0) setCompCold();
+        if(temp <= targetTemp) auto = 2;
+    }
+    if(auto == 2){  //fixed
+        //power saving feature,
+        //turn off a/c
+        if(isPowered) PowerOff();
+        displayFixed();
+        //fix temp after two degree difference
+        if(temp <= (targetTemp-2)) auto = 1;   //heating
+        if(temp >= (targetTemp+2)) auto = 0;   //cooling
+    }
 }
 
 function setAutoOff() {
     auto = -1
+    clearInterval(runAuto);
 }
 
 function displayFixed() {
