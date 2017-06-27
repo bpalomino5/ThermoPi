@@ -93,6 +93,7 @@ v0.on('write', function(param) {
     if (param[0] === '1') {
         PowerOn()
         console.log("A/C On");
+        displayOn()
     } else {
         PowerOff()
         console.log("A/C Off");
@@ -233,6 +234,12 @@ function displayFixed() {
     v5.clear()
     v5.print(0,0, "A/C Auto:")
     v5.print(0,1, "Fixed at " + targetTemp + " F")
+}
+
+function displayOn() {
+    console.log("*** FLOW: COLD ***");
+    v5.clear();
+    v5.print(0,0, "A/C: Cooling");
 }
 
 function displayOff() {
