@@ -195,7 +195,9 @@ function setAuto() {
     targetTemp = stepValue
 
     //set timer to run callback every minute
-    autoTimer = setInterval(runAuto, (1000 * 60));
+    if(!autoTimer){
+        autoTimer = setInterval(runAuto, (1000 * 60));
+    }
 }
 
 function runAuto() {
@@ -228,6 +230,7 @@ function runAuto() {
 function setAutoOff() {
     auto = -1
     clearInterval(autoTimer);
+    autoTimer = false;
 }
 
 function displayFixed() {
