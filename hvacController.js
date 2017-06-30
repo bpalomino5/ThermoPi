@@ -123,14 +123,16 @@ v1.on('write', function(param) {
 
 v2.on('write', function(param) {
     if(param[0] === '1'){
-        setAuto()
+        if(isPowered) setAuto();
     }
 });
 
 v3.on('write', function(param) {
-    stepValue = Number(param[0]);
-    v5.clear();
-    v5.print(0,0, "Set to: " + stepValue +" F")
+    if(isPowered){
+        stepValue = Number(param[0]);
+        v5.clear();
+        v5.print(0,0, "Set to: " + stepValue +" F")
+    }
 });
 
 v4.on('read', function(val) {
