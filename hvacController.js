@@ -93,10 +93,12 @@ function getTemp(){
 v0.on('write', function(param) {
     if (param[0] === '1') {
         PowerOn()
+        process.stdout.write(getTimestamp())
         console.log("A/C On");
         displayOn()
     } else {
         PowerOff()
+        process.stdout.write(getTimestamp())
         console.log("A/C Off");
         displayOff()
         setAutoOff()
@@ -106,12 +108,14 @@ v0.on('write', function(param) {
 v1.on('write', function(param) {
     if (param[0] === '1') {
         blynk.setProperty(1,"color",BLYNK_RED);
+        process.stdout.write(getTimestamp())
         console.log("*** FLOW: HOT ***");
         v5.clear();
         v5.print(0,0, "A/C: Heating");
         setCompHot()
     } else { 
         blynk.setProperty(1,"color",BLYNK_BLUE);
+        process.stdout.write(getTimestamp())
         console.log("*** FLOW: COLD ***");
         v5.clear();
         v5.print(0,0, "A/C: Cooling");
@@ -138,6 +142,7 @@ v3.on('write', function(param) {
 
 v4.on('read', function(val) {
     //get temp from dht
+    process.stdout.write(getTimestamp())
     console.log("*** Reading Temperature ***");
     temp = getTemp();
     v4.write(temp);
@@ -205,6 +210,7 @@ function setAuto() {
 
 function runAuto() {
     temp = getTemp();
+    process.stdout.write(getTimestamp())
     console.log("*** Auto: " + auto)
 
     if(auto == 1){  //heating
@@ -243,6 +249,7 @@ function displayFixed() {
 }
 
 function displayOn() {
+    process.stdout.write(getTimestamp())
     console.log("*** FLOW: COLD ***");
     v5.clear();
     v5.print(0,0, "A/C: Cooling");
@@ -251,4 +258,9 @@ function displayOn() {
 function displayOff() {
     v5.clear()
     v5.print(0,0, "A/C Off");
+}
+
+function getTimestamp(){
+    d = new Date()
+    return d.getMonth()+"/"+d.getDate()+"/"+d.getFullYear()+" "+ d.getHours()+':'+d.getMinutes()+':'+d.getSeconds()+" : ";
 }
