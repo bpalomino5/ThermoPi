@@ -46,6 +46,7 @@ var blynkToken = '9a5060fcbcc0434481fb75eb8cbc036a';    // BLYNK TOKEN
 // Helper vars
 var temp = 0
 var stepValue = 0
+var tempOffset = 3
 
 // checks for auto feature
 var auto = -1   //-1 = not on
@@ -223,9 +224,9 @@ function runAuto() {
         //turn off a/c
         if(isPowered) PowerOff();
         displayFixed();
-        //fix temp after two degree difference
-        if(temp <= (targetTemp-2)) auto = 1;   //heating
-        if(temp >= (targetTemp+2)) auto = 0;   //cooling
+        //fix temp after offset degree difference
+        if(temp <= (targetTemp-tempOffset)) auto = 1;   //heating
+        if(temp >= (targetTemp+tempOffset)) auto = 0;   //cooling
     }
 }
 
