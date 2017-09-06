@@ -12,3 +12,4 @@ To stop:
 - sudo forever stop 0
 If restarting again:
 - clean logs with: sudo forever cleanlogs
+- remove out.log from project directory: rm out.log
