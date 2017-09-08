@@ -79,11 +79,10 @@ var v5 = new blynk.WidgetLCD(5);    // LCD
 
 blynk.on('connect', function() { 
     console.log("Blynk ready.\n\nSettings Log:");
-    displayOn() //if thermoPi resets because of wifi problems and reconnects then display in blynk will be reset to cooling
-    isPowered = true;   // allow control of other features
+    displayReset() // if thermoPi resets because of wifi problems and reconnects then display in blynk will be reset to cooling    
 });
-blynk.on('disconnect', function() { console.log("DISCONNECT"); });
 
+blynk.on('disconnect', function() { console.log("DISCONNECT"); });
 
 function getTemp(){
   //get temp from DHT22
@@ -260,6 +259,12 @@ function displayMessage(message, temp) {
 //     v5.print(0,0, "A/C Auto:")
 //     v5.print(0,1, "Fixed at " + targetTemp + " F")
 // }
+
+function displayReset() {
+    v5.clear();
+    v5.print(0,0, "A/C: Unsure");
+    v5.print(0,1, "Repower Me!");
+}
 
 function displayOn() {
     process.stdout.write(getTimestamp())
