@@ -77,9 +77,11 @@ var v3 = new blynk.VirtualPin(3);   // Stepper
 var v4 = new blynk.VirtualPin(4);   // Temperature Scale
 var v5 = new blynk.WidgetLCD(5);    // LCD
 
-blynk.on('connect', function() { console.log("Blynk ready.\n\nSettings Log:"); });
+blynk.on('connect', function() { 
+    console.log("Blynk ready.\n\nSettings Log:");
+    displayOn() //if thermoPi resets because of wifi problems and reconnects then display in blynk will be reset to cooling
+});
 blynk.on('disconnect', function() { console.log("DISCONNECT"); });
-
 
 
 function getTemp(){
@@ -182,21 +184,24 @@ function setCompCold() {    // R+G+Y+O active sets cold air
 /// Function for Auto feature
 function setAuto() {
     if(stepValue > temp){
-        v5.clear()
-        v5.print(0,0, "A/C Auto:")
-        v5.print(0,1, "Heating to " + stepValue + " F")
+        // v5.clear()
+        // v5.print(0,0, "A/C Auto:")
+        // v5.print(0,1, "Heating to " + stepValue + " F")
+        displayMessage("Heating to", stepValue)
         auto = 1
     }
     else if(stepValue < temp){
-        v5.clear()
-        v5.print(0,0, "A/C Auto:")
-        v5.print(0,1, "Cooling to " + stepValue + " F")
+        // v5.clear()
+        // v5.print(0,0, "A/C Auto:")
+        // v5.print(0,1, "Cooling to " + stepValue + " F")
+        displayMessage("Cooling to", stepValue)
         auto = 0
     }
     else{ // stepValue and temp are equal
-        v5.clear()
-        v5.print(0,0, "A/C Auto:")
-        v5.print(0,1, "Fixed at " + temp + " F")
+        // v5.clear()
+        // v5.print(0,0, "A/C Auto:")
+        // v5.print(0,1, "Fixed at " + temp + " F")
+        displayMessage("Fixed at", temp)
         auto = 2
     }
     //target is set to stepValue
@@ -229,7 +234,8 @@ function runAuto() {
         //power saving feature,
         //turn off a/c
         if(isPowered) PowerOff();
-        displayFixed();
+        displayMessage("Fixed at", targetTemp);
+        // displayFixed();
         //fix temp after offset degree difference
         if(temp <= (targetTemp-tempOffset)) auto = 1;   //heating
         if(temp >= (targetTemp+tempOffset)) auto = 0;   //cooling
@@ -242,11 +248,17 @@ function setAutoOff() {
     autoTimer = false;
 }
 
-function displayFixed() {
+function displayMessage(message, temp) {
     v5.clear()
     v5.print(0,0, "A/C Auto:")
-    v5.print(0,1, "Fixed at " + targetTemp + " F")
+    v5.print(0,1, message + " " + temp + " F")
 }
+
+// function displayFixed() {
+//     v5.clear()
+//     v5.print(0,0, "A/C Auto:")
+//     v5.print(0,1, "Fixed at " + targetTemp + " F")
+// }
 
 function displayOn() {
     process.stdout.write(getTimestamp())
