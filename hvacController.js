@@ -80,6 +80,7 @@ var v5 = new blynk.WidgetLCD(5);    // LCD
 blynk.on('connect', function() { 
     console.log("Blynk ready.\n\nSettings Log:");
     displayOn() //if thermoPi resets because of wifi problems and reconnects then display in blynk will be reset to cooling
+    isPowered = true;   // allow control of other features
 });
 blynk.on('disconnect', function() { console.log("DISCONNECT"); });
 
