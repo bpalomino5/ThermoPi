@@ -31,6 +31,7 @@ WidgetLCD lcd(V5); // V5 - LCD
 int acSetting = 1;
 int temp = 0;  // used throughout logic
 bool isPowered = false;
+bool isRunning = false;
 
 
 // DHT Setup
@@ -56,16 +57,19 @@ void setup() {
     pinMode(D0, OUTPUT);
     pinMode(D1, OUTPUT);
 	pinMode(D2, OUTPUT);
+	PowerOff(); // start in off mode
 }
 
 // Power Button
 BLYNK_WRITE(V0){
     if(param.asInt() == 1){
         PowerOn();
+        isRunning = true;
     }
-    else{
+    else {
         PowerOff();
         displayMessage("A/C: Off","");
+        isRunning = false;
         setAuto(0);
     }
 }
@@ -74,21 +78,21 @@ BLYNK_WRITE(V0){
 BLYNK_WRITE(V1){
     switch (param.asInt()) {
         case 1:
-            if(isPowered){
+            if(isRunning){
                 displayMessage("A/C: Fan only", "");
                 setFanOnly();
             }
             acSetting = 1;
             break;
         case 2:
-            if(isPowered){
+            if(isRunning){
                 displayMessage("A/C: Cooling","");
                 setCooling();
             }
             acSetting = 2;
             break;
         case 3:
-            if(isPowered){
+            if(isRunning){
                 displayMessage("A/C: Heating","");
                 setHeating();
             }
@@ -101,13 +105,13 @@ BLYNK_WRITE(V1){
 // Set Auto Button
 BLYNK_WRITE(V2){
     if (param.asInt() == 1){
-        if (isPowered && acSetting != 1) setAuto(1);
+        if (isRunning && acSetting != 1) setAuto(1);
     }
 }
 
 // Stepper buttons
 BLYNK_WRITE(V3){
-    if (isPowered && acSetting != 1){
+    if (isRunning && acSetting != 1){
         stepValue = param.asInt();
         displayMessage("Set to: " + String(stepValue) + " F", "");
     }
@@ -123,21 +127,24 @@ BLYNK_READ(V4){
 
 
 void setFanOnly(){
-    digitalWrite(FAN, RELAY_ON);
+    digitalWrite(FAN,RELAY_ON);
     digitalWrite(COMPRESSOR,RELAY_OFF);
     digitalWrite(FLOW,RELAY_OFF);
+    isPowered = true;
 }
 
 void setCooling(){
-    digitalWrite(FAN, RELAY_ON);
+    digitalWrite(FAN,RELAY_ON);
     digitalWrite(COMPRESSOR,RELAY_ON);
     digitalWrite(FLOW,RELAY_OFF);
+    isPowered = true;
 }
 
 void setHeating(){
-    digitalWrite(FAN, RELAY_ON);
+    digitalWrite(FAN,RELAY_ON);
     digitalWrite(COMPRESSOR,RELAY_ON);
     digitalWrite(FLOW,RELAY_ON);
+    isPowered = true;
 }
 
 void displayMessage(String setting, String message){
