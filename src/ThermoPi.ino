@@ -45,18 +45,21 @@ int stepValue = 0;
 int Auto = -1; // -1 = not on
 int targetTemp = 0; // updated when set button is used
 int tempOffSet = 2; // for power saving
-
+BlynkTimer autoTimer;
+int autoID;
 
 void setup() {
     // Put initialization like pinMode and begin functions here.
     Serial.begin(9600);
-    Particle.function("setTemp", setTemperature);
-    Particle.function("toggleDevice", toggleDevice);
+    // Particle.function("setTemp", setTemperature);
+    // Particle.function("toggleDevice", toggleDevice);
     dht.begin();
     Blynk.begin(auth);
     pinMode(D0, OUTPUT);
     pinMode(D1, OUTPUT);
 	pinMode(D2, OUTPUT);
+    autoID = autoTimer.setInterval(60000, runAuto);
+    autoTimer.disable(autoID);
 	PowerOff(); // start in off mode
 }
 
@@ -179,9 +182,13 @@ void PowerOff(){
 void setAuto(int setting){
     if (setting == 1){
         Auto = 1;
+        autoTimer.enable(autoID);
         targetTemp = stepValue;
     }
-    else Auto = -1;
+    else{
+        autoTimer.disable(autoID);
+        Auto = -1;
+    }
 }
 
 void runAuto(){
@@ -205,38 +212,40 @@ void runAuto(){
     }
 }
 
-int setTemperature(String temp){
-    int value = temp.toInt();
-    if (value != 0){
-        if (!isPowered) PowerOn();
-        stepValue = value;
-        setAuto(1);
-        return 0;
-    }
-    return -1;
-}
+// int setTemperature(String temp){
+//     int value = temp.toInt();
+//     if (value != 0){
+//         if (!isPowered) PowerOn();
+//         stepValue = value;
+//         setAuto(1);
+//         return 0;
+//     }
+//     return -1;
+// }
 
-int toggleDevice(String setting){
-    if (setting == "on"){
-        if (!isPowered) PowerOn();
-        return 1;
-    }
-    else if (setting == "off") {
-        if (isPowered) PowerOff();
-        return 0;
-    }
-    else {
-        return -1;
-    }
-}
+// int toggleDevice(String setting){
+//     if (setting == "on"){
+//         if (!isPowered) PowerOn();
+//         return 1;
+//     }
+//     else if (setting == "off") {
+//         if (isPowered) PowerOff();
+//         return 0;
+//     }
+//     else {
+//         return -1;
+//     }
+// }
 
 // loop() runs over and over again, as quickly as it can execute.
 void loop() {
     Blynk.run();
-    if (Auto >= 1){
-        if (millis() - currentTime >= 60000){
-            runAuto();
-            currentTime = millis();
-        }
-    }
+    autoTimer.run();
+    // if (Auto >= 1){
+        // autoTimer.run();
+        // if (millis() - currentTime >= 60000){
+        //     runAuto();
+        //     currentTime = millis();
+        // }
+    // }
 }
