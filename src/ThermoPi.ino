@@ -31,7 +31,7 @@ WidgetLCD lcd(V5); // V5 - LCD
 int acSetting = 1;
 int temp = 0;  // used throughout logic
 bool isPowered = false;
-bool isRunning = false;
+// bool isRunning = false;
 
 
 // DHT Setup
@@ -47,10 +47,9 @@ int targetTemp = 0; // updated when set button is used
 int tempOffSet = 2; // for power saving
 BlynkTimer autoTimer;
 int autoID;
+int setID;
 
 void setup() {
-    // Put initialization like pinMode and begin functions here.
-    Serial.begin(9600);
     // Particle.function("setTemp", setTemperature);
     // Particle.function("toggleDevice", toggleDevice);
     dht.begin();
@@ -58,21 +57,26 @@ void setup() {
     pinMode(D0, OUTPUT);
     pinMode(D1, OUTPUT);
 	pinMode(D2, OUTPUT);
+
+    //setup up autotimer
     autoID = autoTimer.setInterval(60000, runAuto);
     autoTimer.disable(autoID);
-	PowerOff(); // start in off mode
+
+    // start in off mode
+	PowerOff();
+    displayMessage("A/C: Off","");
 }
 
 // Power Button
 BLYNK_WRITE(V0){
     if(param.asInt() == 1){
         PowerOn();
-        isRunning = true;
+        // isRunning = true;
     }
     else {
         PowerOff();
         displayMessage("A/C: Off","");
-        isRunning = false;
+        // isRunning = false;
         setAuto(0);
     }
 }
@@ -81,21 +85,21 @@ BLYNK_WRITE(V0){
 BLYNK_WRITE(V1){
     switch (param.asInt()) {
         case 1:
-            if(isRunning){
+            if(isPowered){
                 displayMessage("A/C: Fan only", "");
                 setFanOnly();
             }
             acSetting = 1;
             break;
         case 2:
-            if(isRunning){
+            if(isPowered){
                 displayMessage("A/C: Cooling","");
                 setCooling();
             }
             acSetting = 2;
             break;
         case 3:
-            if(isRunning){
+            if(isPowered){
                 displayMessage("A/C: Heating","");
                 setHeating();
             }
@@ -106,23 +110,29 @@ BLYNK_WRITE(V1){
 }
 
 // Set Auto Button
-BLYNK_WRITE(V2){
-    if (param.asInt() == 1){
-        if (isRunning && acSetting != 1) setAuto(1);
-    }
-}
+// BLYNK_WRITE(V2){
+//     if (param.asInt() == 1){
+//         if (isPowered && acSetting != 1) setAuto(1);
+//     }
+// }
 
 // Stepper buttons
 BLYNK_WRITE(V3){
-    if (isRunning && acSetting != 1){
+    if (isPowered && acSetting != 1){
         stepValue = param.asInt();
         displayMessage("Set to: " + String(stepValue) + " F", "");
+        if (!autoTimer.isEnabled(setID))
+            setID = autoTimer.setTimeout(3000, updateAutoTemp);
+        else{ 
+            autoTimer.deleteTimer(setID);
+            setID = autoTimer.setTimeout(3000, updateAutoTemp);
+        }
     }
 }
 
 // Temperature Reader with Sensor
 BLYNK_READ(V4){
-    temp = round(dht.getTempFarenheit());
+    temp = floor(dht.getHeatIndex() * 9 / 5 + 32);
     Blynk.virtualWrite(V4, temp);
     stepValue = temp;
     Blynk.virtualWrite(V3, temp);
@@ -169,7 +179,7 @@ void PowerOn(){
         displayMessage("A/C: Heating", "");
         setHeating();
     }
-    isPowered = true;
+    // isPowered = true;
 }
 
 void PowerOff(){
@@ -181,9 +191,11 @@ void PowerOff(){
 
 void setAuto(int setting){
     if (setting == 1){
-        Auto = 1;
-        autoTimer.enable(autoID);
-        targetTemp = stepValue;
+        if (Auto != 1){ // don't call auto twice
+            Auto = 1;
+            autoTimer.enable(autoID);
+            targetTemp = stepValue;
+        }
     }
     else{
         autoTimer.disable(autoID);
@@ -191,21 +203,49 @@ void setAuto(int setting){
     }
 }
 
+void updateAutoTemp(){
+    // turn on auto else keep going
+    if (Auto < 1){
+        Auto = 1;
+        autoTimer.enable(autoID);
+    } 
+    targetTemp = stepValue;
+}
+
+// algorithm for efficient auto temperature management
 void runAuto(){
-    temp = round(dht.getTempFarenheit());
-    if (Auto == 1){ // ac running
+    temp = floor(dht.getHeatIndex() * 9 / 5 + 32); // calc & update current temp var
+    if (Auto == 1){ // ac running (w/Compressor)
         if (acSetting == 2){ // cooling
             displayMessage("A/C Auto", "Cooling to " + String(targetTemp) + " F");
             if (!isPowered) setCooling();
-            if (temp <= targetTemp) Auto = 2;
+            if (temp-2 <= targetTemp){
+                setFanOnly();
+                Auto = 2;
+            }
+            // if (temp <= targetTemp) Auto = 3;
         }
         if (acSetting == 3){ // heating
             displayMessage("A/C Auto", "Heating to " + String(targetTemp) + " F");
             if (!isPowered) setHeating();
-            if (temp >= targetTemp) Auto = 2;
+            if (temp+2 >= targetTemp){
+                setFanOnly();
+                Auto = 2;
+            }
+            // if (temp >= targetTemp) Auto = 3;
         }
     }
-    if (Auto == 2){ // ac fixed (off)
+    if (Auto == 2){ // ac running (w/o Compressor)
+        if (acSetting == 2){ // cooling
+            if (temp > targetTemp+2) Auto = 1;
+            if (temp <= targetTemp) Auto = 3;
+        }
+        if (acSetting == 3){ // heating
+            if (temp < targetTemp-2) Auto = 1;
+            if (temp >= targetTemp) Auto = 3;
+        }
+    }
+    if (Auto == 3){ // ac fixed (off)
         displayMessage("A/C: Auto", "Fixed at " + String(targetTemp) + " F");
         if (isPowered) PowerOff(); // power saving
         if (temp <= (targetTemp-tempOffSet) || temp >= (targetTemp+tempOffSet)) Auto = 1;
@@ -241,11 +281,4 @@ void runAuto(){
 void loop() {
     Blynk.run();
     autoTimer.run();
-    // if (Auto >= 1){
-        // autoTimer.run();
-        // if (millis() - currentTime >= 60000){
-        //     runAuto();
-        //     currentTime = millis();
-        // }
-    // }
 }
