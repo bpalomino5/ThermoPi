@@ -15,7 +15,6 @@ char auth[] = "9a5060fcbcc0434481fb75eb8cbc036a";
 // Settings
 // V0 - Power
 // V1 - Hot/Cold
-// V2 - Set
 // V3 - Stepper
 // V4 - Temperature Reader
 WidgetLCD lcd(V5); // V5 - LCD
@@ -31,7 +30,6 @@ WidgetLCD lcd(V5); // V5 - LCD
 int acSetting = 1;
 int temp = 0;  // used throughout logic
 bool isPowered = false;
-// bool isRunning = false;
 
 
 // DHT Setup
@@ -44,14 +42,14 @@ unsigned long currentTime = 0;
 int stepValue = 0;
 int Auto = -1; // -1 = not on
 int targetTemp = 0; // updated when set button is used
-int tempOffSet = 2; // for power saving
+int tempOffSet = 3; // for power saving
 BlynkTimer autoTimer;
+int autoRounds = 0;
 int autoID;
 int setID;
 
 void setup() {
     // Particle.function("setTemp", setTemperature);
-    // Particle.function("toggleDevice", toggleDevice);
     dht.begin();
     Blynk.begin(auth);
     pinMode(D0, OUTPUT);
@@ -71,12 +69,10 @@ void setup() {
 BLYNK_WRITE(V0){
     if(param.asInt() == 1){
         PowerOn();
-        // isRunning = true;
     }
     else {
         PowerOff();
         displayMessage("A/C: Off","");
-        // isRunning = false;
         setAuto(0);
     }
 }
@@ -90,31 +86,26 @@ BLYNK_WRITE(V1){
                 setFanOnly();
             }
             acSetting = 1;
+            if (Auto >= 1) setAuto(0);
             break;
         case 2:
             if(isPowered){
-                displayMessage("A/C: Cooling","");
+                // displayMessage("A/C: Cooling","");
                 setCooling();
+                setAuto(1);
             }
             acSetting = 2;
             break;
         case 3:
             if(isPowered){
-                displayMessage("A/C: Heating","");
+                // displayMessage("A/C: Heating","");
                 setHeating();
+                setAuto(1);
             }
             acSetting = 3;
             break;
     }
-    if (Auto >= 1) setAuto(0);
 }
-
-// Set Auto Button
-// BLYNK_WRITE(V2){
-//     if (param.asInt() == 1){
-//         if (isPowered && acSetting != 1) setAuto(1);
-//     }
-// }
 
 // Stepper buttons
 BLYNK_WRITE(V3){
@@ -122,10 +113,10 @@ BLYNK_WRITE(V3){
         stepValue = param.asInt();
         displayMessage("Set to: " + String(stepValue) + " F", "");
         if (!autoTimer.isEnabled(setID))
-            setID = autoTimer.setTimeout(3000, updateAutoTemp);
+            setID = autoTimer.setTimeout(3000, setAuto(1));
         else{ 
             autoTimer.deleteTimer(setID);
-            setID = autoTimer.setTimeout(3000, updateAutoTemp);
+            setID = autoTimer.setTimeout(3000, setAuto(1));
         }
     }
 }
@@ -172,14 +163,15 @@ void PowerOn(){
         setFanOnly();
     }
     else if(acSetting == 2){
-        displayMessage("A/C: Cooling", "");
+        // displayMessage("A/C: Cooling", "");
         setCooling();
+        setAuto(1);
     }
     else if(acSetting == 3){
-        displayMessage("A/C: Heating", "");
+        // displayMessage("A/C: Heating", "");
         setHeating();
+        setAuto(1);
     }
-    // isPowered = true;
 }
 
 void PowerOff(){
@@ -189,13 +181,13 @@ void PowerOff(){
     isPowered = false;
 }
 
-void setAuto(int setting){
-    if (setting == 1){
-        if (Auto != 1){ // don't call auto twice
+void setAuto(bool on){
+    if (on){
+        if (Auto < 1){ // turn on auto else keep going and update target temp
             Auto = 1;
             autoTimer.enable(autoID);
-            targetTemp = stepValue;
         }
+        targetTemp = stepValue;
     }
     else{
         autoTimer.disable(autoID);
@@ -203,18 +195,25 @@ void setAuto(int setting){
     }
 }
 
-void updateAutoTemp(){
-    // turn on auto else keep going
-    if (Auto < 1){
-        Auto = 1;
-        autoTimer.enable(autoID);
-    } 
-    targetTemp = stepValue;
-}
+// void updateAutoTemp(){
+//     // turn on auto else keep going
+//     if (Auto < 1){
+//         Auto = 1;
+//         autoTimer.enable(autoID);
+//     } 
+//     targetTemp = stepValue;
+// }
 
 // algorithm for efficient auto temperature management
 void runAuto(){
     temp = floor(dht.getHeatIndex() * 9 / 5 + 32); // calc & update current temp var
+
+    // for logging
+    Particle.publish("AutoRounds", String(autoRounds));
+    Particle.publish("AutoSetting", String(Auto));
+    Particle.publish("Temp", String(temp));
+    Particle.publish("AC Setting", String(acSetting));
+
     if (Auto == 1){ // ac running (w/Compressor)
         if (acSetting == 2){ // cooling
             displayMessage("A/C Auto", "Cooling to " + String(targetTemp) + " F");
@@ -222,8 +221,8 @@ void runAuto(){
             if (temp-2 <= targetTemp){
                 setFanOnly();
                 Auto = 2;
+                autoRounds++;
             }
-            // if (temp <= targetTemp) Auto = 3;
         }
         if (acSetting == 3){ // heating
             displayMessage("A/C Auto", "Heating to " + String(targetTemp) + " F");
@@ -231,51 +230,33 @@ void runAuto(){
             if (temp+2 >= targetTemp){
                 setFanOnly();
                 Auto = 2;
+                autoRounds++;
             }
-            // if (temp >= targetTemp) Auto = 3;
         }
     }
     if (Auto == 2){ // ac running (w/o Compressor)
         if (acSetting == 2){ // cooling
-            if (temp > targetTemp+2) Auto = 1;
-            if (temp <= targetTemp) Auto = 3;
+            if (temp > targetTemp+2){
+                setCooling();
+                Auto = 1;
+            }
+            if (temp <= targetTemp || autoRounds >= 2) Auto = 3;
         }
         if (acSetting == 3){ // heating
-            if (temp < targetTemp-2) Auto = 1;
-            if (temp >= targetTemp) Auto = 3;
+            if (temp < targetTemp-2){
+                setHeating();
+                Auto = 1;
+            }
+            if (temp >= targetTemp || autoRounds >= 2) Auto = 3;
         }
     }
     if (Auto == 3){ // ac fixed (off)
+        autoRounds = 0; // reset rounds
         displayMessage("A/C: Auto", "Fixed at " + String(targetTemp) + " F");
         if (isPowered) PowerOff(); // power saving
-        if (temp <= (targetTemp-tempOffSet) || temp >= (targetTemp+tempOffSet)) Auto = 1;
+        if (temp < (targetTemp-tempOffSet) || temp > (targetTemp+tempOffSet)) Auto = 1;
     }
 }
-
-// int setTemperature(String temp){
-//     int value = temp.toInt();
-//     if (value != 0){
-//         if (!isPowered) PowerOn();
-//         stepValue = value;
-//         setAuto(1);
-//         return 0;
-//     }
-//     return -1;
-// }
-
-// int toggleDevice(String setting){
-//     if (setting == "on"){
-//         if (!isPowered) PowerOn();
-//         return 1;
-//     }
-//     else if (setting == "off") {
-//         if (isPowered) PowerOff();
-//         return 0;
-//     }
-//     else {
-//         return -1;
-//     }
-// }
 
 // loop() runs over and over again, as quickly as it can execute.
 void loop() {
