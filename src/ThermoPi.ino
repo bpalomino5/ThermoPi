@@ -8,6 +8,10 @@
 #include "Adafruit_DHT.h"
 #include <blynk.h>
 #include <math.h>
+#include "EchoPhotonBridge.h"
+
+// Echo Setup
+EchoPhotonBridge epb;
 
 // Blynk Setup
 char auth[] = "9a5060fcbcc0434481fb75eb8cbc036a";
@@ -28,7 +32,7 @@ WidgetLCD lcd(V5); // V5 - LCD
 #define RELAY_ON 0
 #define RELAY_OFF 1
 int acSetting = 1;
-int temp = 0;  // used throughout logic
+int temp = 70;  // default room temp
 bool isPowered = false;
 
 
@@ -48,8 +52,46 @@ int autoRounds = 0;
 int autoID;
 int setID;
 
+// Echo Functions
+
+int functionOnOff(int device, bool onOff, String rawParameters){
+    if (onOff) PowerOn();
+    else{
+        PowerOff();
+        displayMessage("A/C: Off","");
+        setAutoOff();
+    }
+    return 0;
+}
+
+int functionTemp(int device, bool requestCurrentTemp, bool requestSetTemp, int temperature, int changeAmount, String rawParameters){
+    if (requestCurrentTemp) return temp;
+    if (requestSetTemp) return targetTemp;
+    if (!isPowered) PowerOn();
+    targetTemp = temperature;
+    return 0;
+}
+
+// GA functions
+
+// int setOnOFF(String command){
+//     if (command == "1") PowerOn();
+//     else{
+//         PowerOff();
+//         displayMessage("A/C: Off","");
+//         setAutoOff();
+//     }
+//     return 0;
+// }
+
+// int setTemperature(String command){
+//     if (!isPowered) PowerOn();
+//     targetTemp = command.toInt();
+//     return 0;
+// }
+
+
 void setup() {
-    // Particle.function("setTemp", setTemperature);
     dht.begin();
     Blynk.begin(auth);
     pinMode(D0, OUTPUT);
@@ -63,6 +105,14 @@ void setup() {
     // start in off mode
 	PowerOff();
     displayMessage("A/C: Off","");
+
+    // EPB Setup
+    epb.addEchoDeviceV2OnOff("AC", &functionOnOff);
+    epb.addEchoDeviceV2Temp("AC", &functionTemp);
+
+    // GA Setup
+    // Particle.function("OnOff", setOnOFF);
+    // Particle.function("setTemp", setTemperature);
 }
 
 // Power Button
@@ -73,7 +123,7 @@ BLYNK_WRITE(V0){
     else {
         PowerOff();
         displayMessage("A/C: Off","");
-        setAuto(0);
+        setAutoOff();
     }
 }
 
@@ -86,13 +136,13 @@ BLYNK_WRITE(V1){
                 setFanOnly();
             }
             acSetting = 1;
-            if (Auto >= 1) setAuto(0);
+            if (Auto >= 1) setAutoOff();
             break;
         case 2:
             if(isPowered){
                 // displayMessage("A/C: Cooling","");
                 setCooling();
-                setAuto(1);
+                updateAutoTemp();
             }
             acSetting = 2;
             break;
@@ -100,7 +150,7 @@ BLYNK_WRITE(V1){
             if(isPowered){
                 // displayMessage("A/C: Heating","");
                 setHeating();
-                setAuto(1);
+                updateAutoTemp();
             }
             acSetting = 3;
             break;
@@ -113,10 +163,10 @@ BLYNK_WRITE(V3){
         stepValue = param.asInt();
         displayMessage("Set to: " + String(stepValue) + " F", "");
         if (!autoTimer.isEnabled(setID))
-            setID = autoTimer.setTimeout(3000, setAuto(1));
+            setID = autoTimer.setTimeout(3000, updateAutoTemp);
         else{ 
             autoTimer.deleteTimer(setID);
-            setID = autoTimer.setTimeout(3000, setAuto(1));
+            setID = autoTimer.setTimeout(3000, updateAutoTemp);
         }
     }
 }
@@ -165,12 +215,12 @@ void PowerOn(){
     else if(acSetting == 2){
         // displayMessage("A/C: Cooling", "");
         setCooling();
-        setAuto(1);
+        updateAutoTemp();
     }
     else if(acSetting == 3){
         // displayMessage("A/C: Heating", "");
         setHeating();
-        setAuto(1);
+        updateAutoTemp();
     }
 }
 
@@ -181,28 +231,19 @@ void PowerOff(){
     isPowered = false;
 }
 
-void setAuto(bool on){
-    if (on){
-        if (Auto < 1){ // turn on auto else keep going and update target temp
-            Auto = 1;
-            autoTimer.enable(autoID);
-        }
-        targetTemp = stepValue;
-    }
-    else{
-        autoTimer.disable(autoID);
-        Auto = -1;
-    }
+void setAutoOff(){
+    autoTimer.disable(autoID);
+    Auto = -1;
 }
 
-// void updateAutoTemp(){
-//     // turn on auto else keep going
-//     if (Auto < 1){
-//         Auto = 1;
-//         autoTimer.enable(autoID);
-//     } 
-//     targetTemp = stepValue;
-// }
+void updateAutoTemp(){
+    // turn on auto else keep going
+    if (Auto < 1){
+        Auto = 1;
+        autoTimer.enable(autoID);
+    } 
+    targetTemp = stepValue;
+}
 
 // algorithm for efficient auto temperature management
 void runAuto(){
