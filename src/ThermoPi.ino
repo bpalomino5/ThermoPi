@@ -2,7 +2,7 @@
  * Project ThermoPi
  * Description: Iot Thermostat for Home Automation System
  * Author: Brandon Palomino
- * Date: 9/3/18
+ * Date: 9/15/18
  */
 
 #include "Adafruit_DHT.h"
@@ -32,7 +32,7 @@ WidgetLCD lcd(V5); // V5 - LCD
 #define RELAY_ON 0
 #define RELAY_OFF 1
 int acSetting = 1;
-int temp = 70;  // default room temp
+int temp = 0;  // default room temp
 bool isPowered = false;
 
 
@@ -102,6 +102,9 @@ void setup() {
     autoID = autoTimer.setInterval(60000, runAuto);
     autoTimer.disable(autoID);
 
+    setID = autoTimer.setInterval(3000, updateAutoTemp);
+    autoTimer.disable(setID);
+
     // start in off mode
 	PowerOff();
     displayMessage("A/C: Off","");
@@ -140,7 +143,7 @@ BLYNK_WRITE(V1){
             break;
         case 2:
             if(isPowered){
-                // displayMessage("A/C: Cooling","");
+                displayMessage("A/C: Cooling","");
                 setCooling();
                 updateAutoTemp();
             }
@@ -148,7 +151,7 @@ BLYNK_WRITE(V1){
             break;
         case 3:
             if(isPowered){
-                // displayMessage("A/C: Heating","");
+                displayMessage("A/C: Heating","");
                 setHeating();
                 updateAutoTemp();
             }
@@ -159,14 +162,14 @@ BLYNK_WRITE(V1){
 
 // Stepper buttons
 BLYNK_WRITE(V3){
-    if (isPowered && acSetting != 1){
+    if ((isPowered && acSetting != 1) || Auto >= 1){ // either simply powered or auto running
         stepValue = param.asInt();
         displayMessage("Set to: " + String(stepValue) + " F", "");
-        if (!autoTimer.isEnabled(setID))
-            setID = autoTimer.setTimeout(3000, updateAutoTemp);
-        else{ 
-            autoTimer.deleteTimer(setID);
-            setID = autoTimer.setTimeout(3000, updateAutoTemp);
+        if (autoTimer.isEnabled(setID)){
+            autoTimer.restartTimer(setID);
+        } 
+        else {
+            autoTimer.enable(setID);
         }
     }
 }
@@ -213,12 +216,12 @@ void PowerOn(){
         setFanOnly();
     }
     else if(acSetting == 2){
-        // displayMessage("A/C: Cooling", "");
+        displayMessage("A/C: Cooling", "");
         setCooling();
         updateAutoTemp();
     }
     else if(acSetting == 3){
-        // displayMessage("A/C: Heating", "");
+        displayMessage("A/C: Heating", "");
         setHeating();
         updateAutoTemp();
     }
@@ -243,6 +246,7 @@ void updateAutoTemp(){
         autoTimer.enable(autoID);
     } 
     targetTemp = stepValue;
+    autoTimer.disable(setID);
 }
 
 // algorithm for efficient auto temperature management
@@ -252,7 +256,8 @@ void runAuto(){
     // for logging
     Particle.publish("AutoRounds", String(autoRounds));
     Particle.publish("AutoSetting", String(Auto));
-    Particle.publish("Temp", String(temp));
+    // Particle.publish("Temp", String(temp));
+    // Particle.publish("Target", String(targetTemp));
     Particle.publish("AC Setting", String(acSetting));
 
     if (Auto == 1){ // ac running (w/Compressor)
