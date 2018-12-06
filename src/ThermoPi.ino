@@ -225,6 +225,7 @@ void PowerOn(){
         setHeating();
         updateAutoTemp();
     }
+    Particle.publish("OnPower", String(isPowered), PRIVATE);
 }
 
 void PowerOff(){
@@ -232,6 +233,7 @@ void PowerOff(){
     digitalWrite(COMPRESSOR,RELAY_OFF);
     digitalWrite(FLOW,RELAY_OFF);
     isPowered = false;
+    Particle.publish("OnPower", String(isPowered), PRIVATE);
 }
 
 void setAutoOff(){
@@ -244,8 +246,9 @@ void updateAutoTemp(){
     if (Auto < 1){
         Auto = 1;
         autoTimer.enable(autoID);
-    } 
+    }
     targetTemp = stepValue;
+    displayMessage("A/C Auto", String(targetTemp) + " F");
     autoTimer.disable(setID);
 }
 
@@ -297,10 +300,12 @@ void runAuto(){
         }
     }
     if (Auto == 3){ // ac fixed (off)
-        autoRounds = 0; // reset rounds
         displayMessage("A/C: Auto", "Fixed at " + String(targetTemp) + " F");
         if (isPowered) PowerOff(); // power saving
-        if (temp < (targetTemp-tempOffSet) || temp > (targetTemp+tempOffSet)) Auto = 1;
+        if (temp < (targetTemp-tempOffSet) || temp > (targetTemp+tempOffSet)){
+            autoRounds = 0; // reset rounds
+            Auto = 1;
+        }
     }
 }
 
